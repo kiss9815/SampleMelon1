@@ -14,6 +14,9 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.begentgroup.xmlparser.XMLParser;
+import com.google.gson.Gson;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -57,12 +60,55 @@ public class MainActivity extends AppCompatActivity {
                 new MyMelonJsonTask().execute();
             }
         });
-
+         btn = (Button)findViewById(R.id.btn_xml_parser);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new MyMelonXMLTask().execute();
+            }
+        });
     }
 
 
     String urlFormat = "http://apis.skplanetx.com/melon/charts/realtime?count=%s&page=%s&version=1";
 
+    class MyMelonXMLTask extends AsyncTask<String, Integer, Melon>{
+        @Override
+        protected Melon doInBackground(String... params) {
+            String urlText = String.format(urlFormat, 10, 1);
+            try {
+                URL url = new URL(urlText);
+                HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                conn.setRequestProperty("Accept","application/xml");
+                conn.setRequestProperty("appKey","743e78d8-09cc-399f-b87e-ae7d25295868");
+                int code = conn.getResponseCode();
+                if (code >= HttpURLConnection.HTTP_OK && code < HttpURLConnection.HTTP_MULT_CHOICE) {
+
+                    InputStream is = conn.getInputStream();
+                    XMLParser parser = new XMLParser();
+                    Melon melon = parser.fromXml(is, "melon", Melon.class);
+                    return melon;
+                }
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Melon melon) {
+            super.onPostExecute(melon);
+            if (melon != null) {
+                for (Song s : melon.songs.song) { //data 이름이 원래 song이지만 songlist로 바꿈 songlist를 사용하는 곳에서 바꾸자     @SerializedName("song")사용하고 바꾸고 싶은 변수명 사용
+                    mAdapter.add(s);
+                }
+            } else {
+                Toast.makeText(MainActivity.this, "Error!!!", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
     class MyMelonJsonTask extends AsyncTask<String, Integer, Melon>{
 
         @Override
@@ -76,24 +122,31 @@ public class MainActivity extends AppCompatActivity {
                 conn.setRequestProperty("appKey", "743e78d8-09cc-399f-b87e-ae7d25295868");
                 int code  = conn.getResponseCode();
                 if(code >= HttpURLConnection.HTTP_OK && code < HttpURLConnection.HTTP_MULT_CHOICE){
+//                    InputStream is = conn.getInputStream();
+//                    StringBuilder sb = new StringBuilder();
+//                    BufferedReader br = new BufferedReader(new InputStreamReader(is));
+//                    String line;
+//                    while ((line = br.readLine())!= null){
+//                        sb.append(line).append("\n\r");
+//
+//                    }
+//                    String text = sb.toString(); //전체 읽어들인 값
+//
+//                    try {
+//                        JSONObject jsonObject = new JSONObject(text);
+//                        MelonData data = new MelonData();
+//                        data.setData(jsonObject);
+//                        return data.melon;
+//                    } catch (JSONException e) {
+//                        e.printStackTrace();
+//                    } // gson 사용안하고 그냥 사용하는 것
+
+                    Gson gson = new Gson();
                     InputStream is = conn.getInputStream();
-                    StringBuilder sb = new StringBuilder();
-                    BufferedReader br = new BufferedReader(new InputStreamReader(is));
-                    String line;
-                    while ((line = br.readLine())!= null){
-                        sb.append(line).append("\n\r");
-
-                    }
-                    String text = sb.toString(); //전체 읽어들인 값
-
-                    try {
-                        JSONObject jsonObject = new JSONObject(text);
-                        MelonData data = new MelonData();
-                        data.setData(jsonObject);
-                        return data.melon;
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
+                    InputStreamReader isr = new InputStreamReader(is);
+                    MelonData data = gson.fromJson(isr, MelonData.class);
+                    return data.melon;
+                    // gson 사용해서 바뀌는 코드
                 }
 
             } catch (MalformedURLException e) {
